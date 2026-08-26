@@ -1,6 +1,21 @@
-def main():
-    print("Hello from ai-job-analyzer!")
+from pydantic import BaseModel
+from fastapi import FastAPI
+
+app = FastAPI()
+
+class AnalyzeRequest(BaseModel):
+    text: str
+
+class AnalyzeResponse(BaseModel):
+    length: int
+    preview: str
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.post("/analyze")
+def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
+    return AnalyzeResponse(length=len(request.text), preview=request.text[:20])
+        
