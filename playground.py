@@ -24,5 +24,23 @@ class Job(BaseModel):
 job = Job(title="Software Engineer", skills=skills, experience=5)
 print(job)
 
+class User(BaseModel):
+    name: str
+    age: int
+    height: float
+    enabled: bool
 
+    skills: list[str]
+    user_info: dict[str, str]
+    nickname: str | None 
 
+user = User(
+    name="John Doe",
+    age="30",
+    height=1.85,
+    enabled=True,
+    skills=normalized_skills,
+    user_info={"email": "john.doe@example.com", "phone": "123-456-7890"},
+    nickname="johndoe"
+)
+print(user)
