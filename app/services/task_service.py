@@ -1,28 +1,26 @@
-from app.schemas.task import TaskCreate, TaskResponse
+from sqlalchemy.orm import Session
 
-tasks_db: list[TaskResponse] = []
+from app.models.task import Task
+from app.repositories import task_repository
+from app.schemas.task import TaskCreate
 
-def create_task(task: TaskCreate) -> TaskResponse:
-    new_task = TaskResponse(
-        id=max((item.id for item in tasks_db), default=0) + 1,
-        title=task.title,
-        description=task.description,
-        priority=task.priority,
-    )
-    tasks_db.append(new_task)
-   
-    return new_task
 
-def get_tasks() -> list[TaskResponse]:
-    return tasks_db
+def create_task(db: Session, task: TaskCreate) -> Task:
+    return task_repository.create_task(db, task)
 
-def get_task(task_id: int) -> TaskResponse | None:
-    task = next((t for t in tasks_db if t.id == task_id), None)
-    return task
 
-def delete_task(task_id: int) -> bool:
-    task = get_task(task_id)
+def get_tasks(db: Session) -> list[Task]:
+    return task_repository.get_tasks(db)
+
+
+def get_task(db: Session, task_id: int) -> Task | None:
+    return task_repository.get_task_by_id(db, task_id)
+
+
+def delete_task(db: Session, task_id: int) -> bool:
+    task = task_repository.get_task_by_id(db, task_id)
     if task is None:
         return False
-    tasks_db.remove(task)
+
+    task_repository.delete_task(db, task)
     return True
