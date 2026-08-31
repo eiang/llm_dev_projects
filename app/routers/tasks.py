@@ -15,6 +15,17 @@ DbSession = Annotated[Session, Depends(get_db)]
 def create_task(task: TaskCreate, db: DbSession):
     return task_service.create_task(db, task)
 
+@router.put("/{task_id}", status_code=status.HTTP_200_OK, response_model=TaskResponse)
+def update_task(task_id: int, task_update: TaskCreate, db: DbSession):
+    task = task_service.update_task(db, task_id, task_update)
+    if task is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
+    return task
+    
+
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=list[TaskResponse])
 def get_tasks(db: DbSession):

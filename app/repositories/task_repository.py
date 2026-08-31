@@ -24,6 +24,17 @@ def create_task(db: Session, task: TaskCreate) -> Task:
     return db_task
 
 
+def update_task(db: Session, task: Task, task_update: TaskCreate) -> Task:
+    task.title = task_update.title
+    task.description = task_update.description
+    task.priority = task_update.priority
+    task.category = task_update.category
+    
+    db.commit()
+    db.refresh(task)
+    return task
+   
+
 def delete_task(db: Session, task: Task) -> None:
     db.delete(task)
     db.commit()
