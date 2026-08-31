@@ -16,7 +16,8 @@ def get_task_by_id(db: Session, task_id: int) -> Task | None:
 
 
 def create_task(db: Session, task: TaskCreate) -> Task:
-    db_task = Task(title=task.title, description=task.description, priority=task.priority)
+    # db_task = Task(title=task.title, description=task.description, priority=task.priority)
+    db_task = Task(**task.model_dump())
     db.add(db_task)
     db.commit()
     db.refresh(db_task)

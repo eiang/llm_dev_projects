@@ -11,3 +11,4 @@ class Task(Base):
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     priority: Mapped[int] = mapped_column(default=1, nullable=False)
     completed: Mapped[bool] = mapped_column(default=False, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(20), nullable=True)
