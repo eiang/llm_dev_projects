@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str
     debug: bool
+    llm_api_key: str
+    llm_base_url: str
+    llm_model: str
+    
 
 
 settings = Settings()  # type: ignore[call-arg]  # 字段值从 .env / 环境变量注入

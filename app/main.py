@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import tasks
+from app.routers import ai, tasks
 
 # Base.metadata.create_all(bind=engine)
 
@@ -8,6 +8,8 @@ from app.routers import tasks
 app = FastAPI(title="AI Backend Learning API")
 
 app.include_router(tasks.router)
+app.include_router(ai.router)
+
 
 
 @app.get("/")
