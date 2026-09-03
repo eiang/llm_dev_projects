@@ -2,6 +2,7 @@ from openai import OpenAI
 import openai
 
 from app.core.config import settings
+from app.tools.order_tools import TOOLS
 
 
 class LlmError(Exception):
@@ -34,3 +35,25 @@ def chat(input_messages: list[dict[str,str]],system_message: dict[str,str], *,js
         raise LlmError("LLM response is None")
 
     return content
+
+
+def test_tool_call():
+    user_messages = [
+    {
+        "role": "user",
+        "content": "请你介绍一下你自己",
+    },
+    ]
+
+    response = client.chat.completions.create(
+        model=settings.llm_model,
+        messages= user_messages,  # pyright: ignore[reportArgumentType]
+        
+        tools=TOOLS,  # pyright: ignore[reportArgumentType]
+    )
+    print(response.choices[0].message)
+
+
+# print("我是 llm_client.py，我的 __name__ =", repr(__name__))
+if __name__ == "__main__":
+    test_tool_call()
