@@ -7,7 +7,7 @@ def get_order_status(order_id: int) -> dict[str,str]:
         1002: {
             "status": "processing",
             "product": "iPhone",
-        },
+        },   
     }
 
     return orders.get(
@@ -41,3 +41,7 @@ GET_ORDER_STATUS_TOOL = {
 TOOLS = [
     GET_ORDER_STATUS_TOOL,
 ]
+
+AVAILABLE_TOOLS = {
+    "get_order_status": get_order_status,
+    }
