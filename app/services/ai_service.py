@@ -2,6 +2,7 @@ import json
 from pydantic import ValidationError
 from app.clients import llm_client
 from app.schemas.ai import TaskExtractResult
+from app.tools.order_tools import AVAILABLE_TOOLS, TOOLS
 
 conversations: dict[str, list[dict[str, str]]] = {}
 
@@ -55,7 +56,7 @@ def chat(conversation_id: str, message: str) -> str:
     # 新建临时 list，不直接修改正式 history
     input_messages =  [*history, user_message]
 
-    answer = llm_client.chat(input_messages,system_message)
+    answer = llm_client.chat(input_messages,system_message)  # pyright: ignore[reportArgumentType]
     # LLM 成功后才保存本轮对话
     
     history.append(user_message)
@@ -72,7 +73,7 @@ def extract_task(text: str) -> TaskExtractResult:
     }
     
 
-    answer = llm_client.chat([user_message],system_message,json_mode=True)
+    answer = llm_client.chat([user_message],system_message,json_mode=True)  # pyright: ignore[reportArgumentType]
   
     try:
         data = json.loads(answer)
@@ -82,3 +83,63 @@ def extract_task(text: str) -> TaskExtractResult:
         raise llm_client.LlmError(
             "Invalid structured output from LLM"
         ) from e
+
+
+def chat_with_tools(input_message: str) -> str:
+    user_messages: list[dict[str, object]]  = [
+    {
+        "role": "user",
+        "content": input_message,
+    },
+    ]
+
+    
+    message = llm_client.complete(user_messages,tools=TOOLS)
+    
+    
+    if message.tool_calls:
+        tool_call = message.tool_calls[0]
+        function_name = tool_call.function.name  
+        arguments_json = tool_call.function.arguments  
+        arguments = json.loads(arguments_json)
+        function = AVAILABLE_TOOLS.get(function_name)
+        if function is None:
+            raise ValueError(f"Unknown tool:{function_name}")
+        result = function(**arguments)
+        assistant_message =  {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": [
+                    {
+                    "id": tool_call.id,
+                    "type": tool_call.type,
+                    "function": {
+                        "name": tool_call.function.name,  
+                        "arguments": tool_call.function.arguments, 
+                    },
+                    },
+                ],
+            }
+        
+        user_messages.append(assistant_message)  
+        tool_message = {
+            "role": "tool",
+            "content": json.dumps(result, ensure_ascii=False),
+            "tool_call_id": tool_call.id,
+        }
+        user_messages.append(tool_message)
+        final_message = llm_client.complete(user_messages,tools=TOOLS)  
+        if final_message.content is None:
+            raise llm_client.LlmError("LLM returned None")
+        return final_message.content
+    if message.content is None:
+        raise llm_client.LlmError("LLM returned None")
+    return message.content
+
+if __name__ == "__main__":
+    print(  
+        chat_with_tools(
+        "你好，介绍下自己"
+    )
+    )
+
