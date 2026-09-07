@@ -1,4 +1,4 @@
-def get_order_status(order_id: int) -> dict[str,str]:
+def get_order_status(order_id: int) -> object:
     orders = {
         1001: {
             "status": "shipped",
