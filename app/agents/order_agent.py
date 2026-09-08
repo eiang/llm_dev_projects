@@ -1,13 +1,15 @@
 import json
 
+from app.agents.tool_executor import execute_tool_call
 from app.clients import llm_client
+from app.schemas.tool import ToolResult
 from app.tools.order_tools import AVAILABLE_TOOLS, TOOLS
 
 def _append_tool_message(messages: list[dict[str,object]], 
-tool_call_id: str, result: object) -> None:
+tool_call_id: str, result: ToolResult) -> None:
     tool_message: dict[str,object] = {
         "role": "tool",
-        "content": json.dumps(result, ensure_ascii=False),
+        "content": result.model_dump_json(exclude_none=True),
         "tool_call_id": tool_call_id,
     }
     
@@ -30,34 +32,11 @@ def run_order_agent(messages: list[dict[str,object]],max_steps: int = 5) -> str:
             return message.content
         print("tool_calls:",message.tool_calls)
         for tool_call in message.tool_calls:
-            function = AVAILABLE_TOOLS.get(tool_call.function.name)
-            if function is None:
-                error_result: dict[str,object] = {
-                    "error": "tool_not_found",
-                    "message": f"Tool {tool_call.function.name} not found",
-                }
-                _append_tool_message(messages, tool_call.id, error_result) 
-                continue
-            try:
-                arguments = json.loads(tool_call.function.arguments)
-            except json.JSONDecodeError:
-                error_result = {
-                    "error": "invalid_tool_arguments",
-                    "message": "Tool arguments are not valid JSON",
-                }
-                _append_tool_message(messages, tool_call.id, error_result) 
-                continue
-            try:
-                result = function(**arguments)
-            except Exception:
-                error_result = {
-                    "error": "tool_execution_error",
-                    "message": "Tool execution error",
-                }
-                _append_tool_message(messages, tool_call.id, error_result)  
-                continue
-         
-            _append_tool_message(messages, tool_call.id, result) 
+            tool_result  = execute_tool_call(
+                tool_call,
+                available_tools=AVAILABLE_TOOLS,
+            )
+            _append_tool_message(messages, tool_call.id, tool_result ) 
 
     raise RuntimeError(f"Agent exceed max_steps: {max_steps}")
 
