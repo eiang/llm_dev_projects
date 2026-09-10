@@ -1,5 +1,5 @@
-import json
 import logging
+import time
 import uuid
 
 from app.agents.context import AgentRunContext
@@ -7,6 +7,7 @@ from app.agents.tool_executor import execute_tool_call
 from app.clients import llm_client
 from app.schemas.tool import ToolResult
 from app.tools.order_tools import AVAILABLE_TOOLS, TOOLS
+
 
 def _append_tool_message(messages: list[dict[str,object]], 
 tool_call_id: str, result: ToolResult) -> None:
@@ -27,35 +28,87 @@ def run_order_agent(messages: list[dict[str,object]],max_steps: int = 5) -> str:
         "event=agent_started trace_id=%s",
         context.trace_id,
     )
-    for step in range(max_steps):
-        context.step = step + 1
-        logger.info(
-            "event=agent_step_started trace_id=%s step=%s max_steps=%s",
-            context.trace_id,
-            context.step,
-            max_steps,
-        )
-        
-        context.llm_call_count += 1
-        message = llm_client.complete(messages,tools=TOOLS)
-        messages.append(message.model_dump(exclude_none=True,exclude={"reasoning_content"}))
-        print("messages:",messages)
-        if not message.tool_calls:
-            if message.content is None:
-                raise llm_client.LlmError(
-                    "LLM returned no content"
-                )
-
-            return message.content
-        print("tool_calls:",message.tool_calls)
-        for tool_call in message.tool_calls:
-            context.tool_call_count += 1
-            tool_result  = execute_tool_call(
-                tool_call,
-                available_tools=AVAILABLE_TOOLS,
+    try:
+        for step in range(max_steps):
+            context.step = step + 1
+            logger.info(
+                "event=agent_step_started trace_id=%s step=%s max_steps=%s",
+                context.trace_id,
+                context.step,
+                max_steps,
             )
-            _append_tool_message(messages, tool_call.id, tool_result ) 
-
+            
+            context.llm_call_count += 1
+            message = llm_client.complete(messages,tools=TOOLS)
+            logger.info(
+                "event=llm_call_completed trace_id=%s step=%s llm_call_count=%s",
+                context.trace_id,
+                context.step,
+                context.llm_call_count,
+            )
+            messages.append(message.model_dump(exclude_none=True,exclude={"reasoning_content"}))
+            logger.debug(
+                "event=messages_updated trace_id=%s message_count=%s",
+                context.trace_id,
+                len(messages),
+            )
+            
+            if not message.tool_calls:
+                if message.content is None:
+                    raise llm_client.LlmError(
+                        "LLM returned no content"
+                    )
+              
+                logger.info(
+                    "event=agent_completed trace_id=%s step=%s ",
+                    context.trace_id,
+                    context.step,
+                    
+                )
+               
+                return message.content
+            
+            for tool_call in message.tool_calls:
+                context.tool_call_count += 1
+                logger.info(
+                    "event=tool_call_started trace_id=%s step=%s tool=%s tool_call_count=%s",
+                    context.trace_id,
+                    context.step,
+                    tool_call.function.name,
+                    context.tool_call_count,
+                )
+                tool_result  = execute_tool_call(
+                    tool_call,
+                    available_tools=AVAILABLE_TOOLS,
+                    trace_id=context.trace_id,
+                    step=context.step,
+                )
+                if tool_result.success:
+                    logger.info(
+                        "event=tool_call_completed trace_id=%s step=%s tool=%s tool_call_count=%s",
+                        context.trace_id,
+                        context.step,
+                        tool_result.tool_name,
+                        context.tool_call_count,
+                    )
+                else:
+                    logger.error(
+                        "event=tool_call_failed trace_id=%s step=%s tool=%s error_code=%s",
+                        context.trace_id,
+                        context.step,
+                        tool_result.tool_name,
+                        tool_result.error_code,
+                    )
+                _append_tool_message(messages, tool_call.id, tool_result )
+    finally: 
+        duration_ms = (time.perf_counter() - context.start_time) * 1000
+        logger.info(
+            "event=agent_finished trace_id=%s llm_call_count=%s tool_call_count=%s duration=%.2f",
+            context.trace_id,
+            context.llm_call_count,
+            context.tool_call_count,
+            duration_ms,
+        )
     raise RuntimeError(f"Agent exceed max_steps: {max_steps}")
 
 
