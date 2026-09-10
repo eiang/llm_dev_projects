@@ -1,5 +1,8 @@
 import json
+import logging
+import uuid
 
+from app.agents.context import AgentRunContext
 from app.agents.tool_executor import execute_tool_call
 from app.clients import llm_client
 from app.schemas.tool import ToolResult
@@ -15,11 +18,25 @@ tool_call_id: str, result: ToolResult) -> None:
     
     messages.append(tool_message)  
 
+logger = logging.getLogger(__name__)
+
 def run_order_agent(messages: list[dict[str,object]],max_steps: int = 5) -> str:
+    trace_id = uuid.uuid4().hex
+    context = AgentRunContext(trace_id=trace_id)
+    logger.info(
+        "event=agent_started trace_id=%s",
+        context.trace_id,
+    )
     for step in range(max_steps):
-        print(
-        f"agent step: {step + 1}/{max_steps}"
+        context.step = step + 1
+        logger.info(
+            "event=agent_step_started trace_id=%s step=%s max_steps=%s",
+            context.trace_id,
+            context.step,
+            max_steps,
         )
+        
+        context.llm_call_count += 1
         message = llm_client.complete(messages,tools=TOOLS)
         messages.append(message.model_dump(exclude_none=True,exclude={"reasoning_content"}))
         print("messages:",messages)
@@ -32,6 +49,7 @@ def run_order_agent(messages: list[dict[str,object]],max_steps: int = 5) -> str:
             return message.content
         print("tool_calls:",message.tool_calls)
         for tool_call in message.tool_calls:
+            context.tool_call_count += 1
             tool_result  = execute_tool_call(
                 tool_call,
                 available_tools=AVAILABLE_TOOLS,
@@ -44,6 +62,7 @@ def run_order_agent(messages: list[dict[str,object]],max_steps: int = 5) -> str:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     messages: list[dict[str,object]] = [
         {
             "role": "user",
