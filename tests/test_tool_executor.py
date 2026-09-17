@@ -19,6 +19,8 @@ def test_execute_tool_call_success():
     result = execute_tool_call(
         tool_call,
         available_tools=AVAILABLE_TOOLS,
+        trace_id="test-trace",
+        step=1,
     )
     assert result.success 
     assert result.data == {
@@ -36,6 +38,8 @@ def test_execute_tool_call_tool_not_found():
     result = execute_tool_call(
         tool_call1,
         available_tools=AVAILABLE_TOOLS,
+        trace_id="test-trace",
+        step=1,
     )
     assert result.success == False
     assert result.error_code == "tool_not_found"
@@ -51,6 +55,8 @@ def test_execute_tool_call_invalid_json():
     result = execute_tool_call(
         tool_call2,
         available_tools=AVAILABLE_TOOLS,
+        trace_id="test-trace",
+        step=1,
     )
     assert result.success == False
     assert result.error_code == "invalid_tool_arguments"
@@ -66,6 +72,8 @@ def test_execute_tool_call_invalid_arguments():
     result = execute_tool_call(
         tool_call3,
         available_tools=AVAILABLE_TOOLS,
+        trace_id="test-trace",
+        step=1,
     )
     assert result.success == False
     assert result.error_code == "invalid_tool_arguments"
@@ -90,6 +98,8 @@ def test_execute_tool_call_execution_error():
     result = execute_tool_call(
         tool_call,
         available_tools=available_tools,
+        trace_id="test-trace",
+        step=1,
     )
 
     assert result.success is False
