@@ -1,6 +1,9 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
 from app.agents.order_agent import run_order_agent
+
 
 def test_run_order_agent_direct_answer():
     messages = [
@@ -75,3 +78,98 @@ def test_run_order_agent_with_tool_call():
     assert messages[3]["role"] == "assistant"
     assert messages[2]["tool_call_id"] == "call_001"
     print(messages)
+
+
+def test_run_order_agent_self_correction():
+    messages = [
+        {
+            "role": "user",
+            "content": "帮我查一下订单 1001 的状态",
+        }
+    ]
+
+    wrong_tool_call = SimpleNamespace(
+        id="call_001",
+        function=SimpleNamespace(
+            name="get_order_status",
+            arguments='{"order": 1001}',
+        ),
+    )
+
+    correct_tool_call = SimpleNamespace(
+        id="call_002",
+        function=SimpleNamespace(
+            name="get_order_status",
+            arguments='{"order_id": 1001}',
+        ),
+    )
+
+    first_message = MagicMock()
+    first_message.content = None
+    first_message.tool_calls = [wrong_tool_call]
+    first_message.model_dump.return_value = {
+        "role": "assistant",
+        "tool_calls": [
+            {
+                "id": "call_001",
+                "type": "function",
+                "function": {
+                    "name": "get_order_status",
+                    "arguments": '{"order": 1001}',
+                },
+            }
+        ],
+    }
+
+    second_message = MagicMock()
+    second_message.content = None
+    second_message.tool_calls = [correct_tool_call]
+    second_message.model_dump.return_value = {
+        "role": "assistant",
+        "tool_calls": [
+            {
+                "id": "call_002",
+                "type": "function",
+                "function": {
+                    "name": "get_order_status",
+                    "arguments": '{"order_id": 1001}',
+                },
+            }
+        ],
+    }
+
+    third_message = MagicMock()
+    third_message.content = "订单 1001 的 MacBook Pro 已经发货。"
+    third_message.tool_calls = None
+    third_message.model_dump.return_value = {
+        "role": "assistant",
+        "content": "订单 1001 的 MacBook Pro 已经发货。",
+    }
+
+    with patch(
+        "app.agents.order_agent.llm_client.complete",
+        side_effect=[
+            first_message,
+            second_message,
+            third_message,
+        ],
+    ) as mock_complete:
+        result = run_order_agent(messages)  # pyright: ignore[reportArgumentType]
+
+    assert result == "订单 1001 的 MacBook Pro 已经发货。"
+    assert mock_complete.call_count == 3
+    assert len(messages) == 6
+
+    first_tool_result = json.loads(
+        messages[2]["content"]
+    )
+
+    assert first_tool_result["success"] is False
+    assert first_tool_result["error_code"] == "invalid_tool_arguments"
+
+    second_tool_result = json.loads(
+        messages[4]["content"]
+    )
+
+    assert second_tool_result["success"] is True
+    assert second_tool_result["data"]["status"] == "shipped"
