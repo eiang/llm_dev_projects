@@ -74,24 +74,45 @@ documents = [
 ]
 query = "线上最高等级事故多久必须响应？"
 
-query_vector = list(
-    model.embed([query])
-)[0]
 
-document_vectors = list(
-    model.embed(documents)
+
+
+
+def search(query,documents,model,top_k=2):
+    query_vector = list(
+        model.embed([query])
+    )[0]
+    document_vectors = list(
+        model.embed(documents)
+    )
+    results = []
+    for index, document in enumerate(documents):
+        score = cosine_similarity(
+            query_vector,
+            document_vectors[index],
+        )
+        results.append(
+            {
+                "document": document,
+                "score": score,
+            }
+        )
+    sorted_results = sorted(
+        results,
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+    top_results = sorted_results[:top_k]
+    return top_results
+
+results = search(
+    query=query,
+    documents=documents,
+    model=model,
+    top_k=2,
 )
-results = []
-for index, document in enumerate(documents):
-    score = cosine_similarity(
-        query_vector,
-        document_vectors[index],
+for result in results:
+    print(
+        result["score"],
+        result["document"],
     )
-
-    results.append(
-        {
-            "document": document,
-            "score": score,
-        }
-    )
-print(results)
